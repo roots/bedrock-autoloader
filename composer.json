@@ -4,6 +4,11 @@
   "description": "An autoloader that enables standard plugins to be required just like must-use plugins",
   "authors": [
     {
+      "name": "Nick Fox",
+      "email": "nick@foxaii.com",
+      "homepage": "https://github.com/foxaii"
+    },
+    {
       "name": "Scott Walkinshaw",
       "email": "scott.walkinshaw@gmail.com",
       "homepage": "https://github.com/swalkinshaw"
