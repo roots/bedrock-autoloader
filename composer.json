@@ -1,0 +1,14 @@
+{
+    "name": "roots/bedrock-autoloader",
+    "description": "Bedrock Autoloader for mu-plugins.",
+    "type": "library",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Roots team",
+            "email": "team@roots.io"
+        }
+    ],
+    "minimum-stability": "stable",
+    "require": {}
+}
