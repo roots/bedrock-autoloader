@@ -1,0 +1,36 @@
+{
+  "name": "roots/bedrock-autoloader",
+  "license": "MIT",
+  "description": "An autoloader that enables standard plugins to be required just like must-use plugins",
+  "authors": [
+    {
+      "name": "Nick Fox",
+      "email": "nick@foxaii.com",
+      "homepage": "https://github.com/foxaii"
+    },
+    {
+      "name": "Scott Walkinshaw",
+      "email": "scott.walkinshaw@gmail.com",
+      "homepage": "https://github.com/swalkinshaw"
+    },
+    {
+      "name": "Austin Pray",
+      "email": "austin@austinpray.com",
+      "homepage": "https://github.com/austinpray"
+    }
+  ],
+  "keywords": [
+    "autoloader", "bedrock", "mu-plugin", "must-use", "plugin", "wordpress"
+  ],
+  "support": {
+    "forum": "https://discourse.roots.io/"
+  },
+  "require": {
+    "php": ">=7.1"
+  },
+  "autoload": {
+    "psr-4": {
+      "Roots\\Bedrock\\": "src/"
+    }
+  }
+}
