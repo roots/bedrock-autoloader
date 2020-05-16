@@ -11,10 +11,6 @@
 
 namespace Roots\Bedrock;
 
-if (!is_blog_installed()) {
-    return;
-}
-
 /**
  * Class Autoloader
  * @package Roots\Bedrock
@@ -195,5 +191,3 @@ class Autoloader
         return $this->count;
     }
 }
-
-new Autoloader();
