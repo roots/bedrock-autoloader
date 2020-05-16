@@ -55,7 +55,7 @@ class Autoloader
 
         self::$instance = $this;
 
-        $this->relativePath = '/../' . basename(__DIR__);
+        $this->relativePath = '/../' . basename(WPMU_PLUGIN_DIR);
 
         if (is_admin()) {
             add_filter('show_advanced_plugins', [$this, 'showInAdmin'], 0, 2);
