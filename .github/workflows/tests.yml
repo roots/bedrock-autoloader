@@ -20,5 +20,5 @@ jobs:
       - name: Install dependencies
         run: composer install --prefer-dist --no-progress
 
-    - name: PHPUnit
-      run: ./vendor/bin/phpunit
+      - name: PHPUnit
+        run: ./vendor/bin/phpunit
