@@ -30,7 +30,19 @@ class AutoloaderTest extends \WP_Mock\Tools\TestCase
         );
         \WP_Mock::userFunction(
             'get_plugins',
-            ['return' => []]
+            [
+                'args' => '/../mu-plugins',
+                'return' => [
+                    '10-fake/10-fake.php' => [
+                        'Name' => 'UwU',
+                        'Version' => '1.0.0',
+                    ],
+                    '20-fake/20-fake.php' => [
+                        'Name' => '0w0',
+                        'Version' => '1.0.0',
+                    ],
+                ]
+            ]
         );
         \WP_Mock::userFunction(
             'get_mu_plugins',
