@@ -73,7 +73,7 @@ class AutoloaderTest extends \WP_Mock\Tools\TestCase
         $this->assertCount(2, $cache['plugins'], 'plugin cache is not set properly');
         $this->assertEquals(2, $cache['count'], 'plugin count is wrong');
 
-        $this->assertTrue(defined('fake_0w0'), 'mu plugins were not loaded');
+        $this->assertTrue(defined('fake_OwO'), 'mu plugins were not loaded');
         $this->assertEquals('loaded', fake_OwO);
         $this->assertEquals('loaded', fake_UwU);
 
