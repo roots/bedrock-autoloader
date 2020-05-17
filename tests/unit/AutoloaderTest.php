@@ -54,8 +54,8 @@ class AutoloaderTest extends \WP_Mock\Tools\TestCase
 
         // TODO: Testing private fields is nasty. We need to refactor Autoloader to be testable
         $reflect = new \ReflectionClass(Autoloader::class);
-		$cacheProp = $reflect->getProperty('cache');
-		$cacheProp->setAccessible(true);
+        $cacheProp = $reflect->getProperty('cache');
+        $cacheProp->setAccessible(true);
 
         $cache = $cacheProp->getValue($a);
         $this->assertCount(2, $cache['plugins'], 'plugin cache is not set properly');
