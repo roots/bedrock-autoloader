@@ -32,5 +32,10 @@
     "psr-4": {
       "Roots\\Bedrock\\": "src/"
     }
+  },
+  "extra": {
+    "branch-alias": {
+      "dev-master": "2.x-dev"
+    }
   }
 }
