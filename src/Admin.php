@@ -4,24 +4,31 @@ declare(strict_types=1);
 
 namespace Roots\Bedrock;
 
-use Roots\Bedrock\MUPluginRepos\PluginRepoInterface;
+use Roots\Bedrock\PluginRepo\PluginRepoInterface;
 
 class Admin
 {
+    /** @var WordPress */
+    protected $wordPress;
     /** @var PluginRepoInterface */
     protected $allMUPluginRepo;
-
     /** @var PluginRepoInterface */
     protected $autoloadMUPluginRepo;
+
 
     /**
      * Admin constructor.
      *
+     * @param WordPress $wordPress
      * @param PluginRepoInterface $allMUPluginRepo
      * @param PluginRepoInterface $autoloadMUPluginRepo
      */
-    public function __construct(PluginRepoInterface $allMUPluginRepo, PluginRepoInterface $autoloadMUPluginRepo)
-    {
+    public function __construct(
+        WordPress $wordPress,
+        PluginRepoInterface $allMUPluginRepo,
+        PluginRepoInterface $autoloadMUPluginRepo
+    ) {
+        $this->wordPress = $wordPress;
         $this->allMUPluginRepo = $allMUPluginRepo;
         $this->autoloadMUPluginRepo = $autoloadMUPluginRepo;
     }
@@ -37,15 +44,12 @@ class Admin
      */
     public function showInAdmin($show, $type)
     {
-        $screen = get_current_screen();
-        $current = is_multisite() ? 'plugins-network' : 'plugins';
-
-        if ($screen->base !== $current || $type !== 'mustuse' || ! current_user_can('activate_plugins')) {
+        if (! $this->shouldShow((string) $type)) {
             return $show;
         }
 
-        $autoloadMUPluginNames = $this->autoloadMUPluginRepo->allNames();
-        $allPlugins = $this->allMUPluginRepo->allPlugins();
+        $autoloadMUPluginNames = $this->autoloadMUPluginRepo->allFiles();
+        $allPlugins = $this->allMUPluginRepo->all();
         foreach ($allPlugins as $pluginName => $plugin) {
             if (in_array($pluginName, $autoloadMUPluginNames, true)) {
                 $allPlugins[$pluginName]['Name'] .= ' *';
@@ -55,5 +59,20 @@ class Admin
         $GLOBALS['plugins']['mustuse'] = $allPlugins;
 
         return false;
+    }
+
+    protected function shouldShow(string $type): bool
+    {
+        if ($type !== 'mustuse') {
+            return false;
+        }
+
+        $currentScreenBase = $this->wordPress->getCurrentScreenBase();
+        $pluginScreenBase = $this->wordPress->getPluginScreenBase();
+        if ($currentScreenBase !== $pluginScreenBase) {
+            return false;
+        }
+
+        return $this->wordPress->currentUserCan('activate_plugins');
     }
 }

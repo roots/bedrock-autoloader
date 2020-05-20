@@ -23,7 +23,7 @@ class Loader
 
     public function run(): void
     {
-        $pluginNames = $this->pluginRepo->allNames();
+        $pluginNames = $this->pluginRepo->allFiles();
 
         array_map(function (string $pluginName) {
             require_once WPMU_PLUGIN_DIR . '/' . $pluginName;

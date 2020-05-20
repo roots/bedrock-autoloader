@@ -1,0 +1,5 @@
+actor: UnitTester
+modules:
+    enabled:
+        - \Roots\Bedrock\Test\Helper\Unit
+        - Mockery

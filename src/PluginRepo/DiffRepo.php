@@ -2,7 +2,9 @@
 
 declare(strict_types=1);
 
-namespace Roots\Bedrock\MUPluginRepos;
+namespace Roots\Bedrock\PluginRepo;
+
+use BadMethodCallException;
 
 // REVIEW: Overkill?
 // TODO: Name a better name.
@@ -10,9 +12,10 @@ class DiffRepo implements PluginRepoInterface
 {
     /** @var PluginRepoInterface */
     protected $universalRepo;
-
     /** @var PluginRepoInterface[] */
     protected $rejectRepos;
+    /** @var String[] */
+    protected $files;
 
     public function __construct(PluginRepoInterface $universalRepo, PluginRepoInterface ...$rejectRepos)
     {
@@ -20,23 +23,28 @@ class DiffRepo implements PluginRepoInterface
         $this->rejectRepos = $rejectRepos;
     }
 
-    // REVIEW: Do we need memoization here?
+    public function allFiles(): array
+    {
+        $this->files = $this->files ?? $this->filesDiff();
+        return $this->files;
+    }
+
     // TODO: Name a better name.
-    public function allNames(): array
+    public function filesDiff(): array
     {
         $rejects = array_map(function (PluginRepoInterface $pluginRepo): array {
-            return $pluginRepo->allNames();
+            return $pluginRepo->allFiles();
         }, $this->rejectRepos);
 
         return array_diff(
-            $this->universalRepo->allNames(),
+            $this->universalRepo->allFiles(),
             ...$rejects
         );
     }
 
-    public function allPlugins(): array
+    public function all(): array
     {
         // TODO.
-        return [];
+        throw new BadMethodCallException(__METHOD__ . ' not implemented.');
     }
 }
