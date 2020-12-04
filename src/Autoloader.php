@@ -64,7 +64,7 @@ class Autoloader
             include_once WPMU_PLUGIN_DIR . '/' . func_get_args()[0];
         }, array_keys($this->cache['plugins']));
 
-        $this->pluginHooks();
+        add_action('plugins_loaded', [$this, 'pluginHooks'], -9999);
     }
 
     /**
@@ -134,7 +134,7 @@ class Autoloader
      * loaded as usual. Plugins are removed by deletion, so there's no way
      * to deactivate or uninstall.
      */
-    private function pluginHooks()
+    public function pluginHooks()
     {
         if (!is_array($this->activated)) {
             return;
