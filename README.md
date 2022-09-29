@@ -23,9 +23,9 @@
 </p>
 
 <p align="center">
-  <a href="https://roots.io/">Roots Website</a> | <a href="https://roots.io/docs/bedrock/master/installation/">Bedrock Documentation</a> | <a href="https://roots.io/docs/bedrock/master/mu-plugin-autoloader/">Autoloader Documentation</a>
+  <a href="https://roots.io/">Roots Website</a> | <a href="https://docs.roots.io/bedrock/master/installation/">Bedrock Documentation</a> | <a href="https://docs.roots.io/bedrock/master/mu-plugin-autoloader/">Autoloader Documentation</a>
 </p>
 
-## Overview 
+## Overview
 
 Bedrock Autoloader enables standard plugins to be required just like must-use plugins. The autoloaded plugins are included after all mu-plugins and standard plugins have been loaded. An asterisk next to the name of the plugin designates the plugins that have been autoloaded.
