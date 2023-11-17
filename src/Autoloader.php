@@ -46,6 +46,9 @@ class Autoloader
 
         if (is_admin()) {
             add_filter('show_advanced_plugins', [$this, 'showInAdmin'], 0, 2);
+
+            // Add filter to add autoPlugins to the array of active plugins
+            add_filter('option_active_plugins', [$this, 'addAutoPlugins']);
         }
 
         $this->loadPlugins();
@@ -180,5 +183,24 @@ class Autoloader
         }
 
         return $this->count;
+    }
+
+    /**
+     * Add the autoloaded plugins to the array of active plugins.
+     *
+     * @param array $plugins Array of active plugins.
+     *
+     * @return array
+     */
+    public function addAutoPlugins(array $plugins): array
+    {
+        $cache = get_site_option('bedrock_autoloader');
+        if ( ! $cache
+            || ! is_array($cache['plugins'])
+        ) {
+            return $plugins;
+        }
+
+        return array_merge($plugins, array_keys($cache['plugins']));
     }
 }
