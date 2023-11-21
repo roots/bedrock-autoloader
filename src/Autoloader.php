@@ -194,6 +194,12 @@ class Autoloader
      */
     public function addAutoPlugins(array $plugins): array
     {
+        // If on plugin overview screen (wp-admin/plugins.php), return early.
+        // Otherwise WP will nag about missing plugins.
+        global $pagenow;
+        if ($pagenow === 'plugins.php') {
+            return $plugins;
+        }
         $cache = get_site_option('bedrock_autoloader');
         if ( ! $cache
             || ! is_array($cache['plugins'])
