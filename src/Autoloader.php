@@ -60,9 +60,10 @@ class Autoloader
         $this->validatePlugins();
         $this->countPlugins();
 
+        $pluginEntryPoints = apply_filters('bedrock_autoloader_load_plugins', array_keys($this->cache['plugins']), $this->cache['plugins']);
         array_map(static function () {
             include_once WPMU_PLUGIN_DIR . '/' . func_get_args()[0];
-        }, array_keys($this->cache['plugins']));
+        }, $pluginEntryPoints);
 
         add_action('plugins_loaded', [$this, 'pluginHooks'], -9999);
     }
