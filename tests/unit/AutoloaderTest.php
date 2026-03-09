@@ -61,6 +61,7 @@ class AutoloaderTest extends \WP_Mock\Tools\TestCase
         \WP_Mock::userFunction('update_site_option', ['return' => true]);
         \WP_Mock::userFunction('add_action', ['return' => true]);
         \WP_Mock::userFunction('add_filter', ['return' => true]);
+        \WP_Mock::userFunction('get_plugin_data', ['return' => ['Name' => '']]);
     }
 
     public function testLoadPlugins()
