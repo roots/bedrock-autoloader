@@ -237,4 +237,43 @@ class AutoloaderTest extends \WP_Mock\Tools\TestCase
         $this->assertContains('20-fake/20-fake.php', $loaded);
         $this->assertNotContains('../../etc/passwd', $loaded);
     }
+
+    public function testFallbackDiscoveryWhenPluginsDirMissing()
+    {
+        $pluginsDir = WP_PLUGIN_DIR;
+        $tempDir = $pluginsDir . '_disabled';
+        rename($pluginsDir, $tempDir);
+
+        try {
+            \WP_Mock::userFunction('get_plugin_data', [
+                'return' => function ($file) {
+                    $relativePath = basename(dirname($file)) . '/' . basename($file);
+                    $map = [
+                        '10-fake/10-fake.php' => ['Name' => 'UwU', 'Version' => '1.0.0'],
+                        '20-fake/20-fake.php' => ['Name' => '0w0', 'Version' => '1.0.0'],
+                    ];
+                    return $map[$relativePath] ?? ['Name' => ''];
+                },
+            ]);
+
+            $reflect = new \ReflectionClass(Autoloader::class);
+            $a = $reflect->newInstanceWithoutConstructor();
+            $this->setProperty($a, 'relativePath', '/../' . basename(WPMU_PLUGIN_DIR));
+
+            $method = $reflect->getMethod('discoverPlugins');
+            $method->setAccessible(true);
+            $plugins = $method->invoke($a);
+
+            $this->assertCount(2, $plugins);
+            $this->assertArrayHasKey('10-fake/10-fake.php', $plugins);
+            $this->assertArrayHasKey('20-fake/20-fake.php', $plugins);
+
+            // Verify deterministic ordering
+            $keys = array_keys($plugins);
+            $this->assertEquals('10-fake/10-fake.php', $keys[0]);
+            $this->assertEquals('20-fake/20-fake.php', $keys[1]);
+        } finally {
+            rename($tempDir, $pluginsDir);
+        }
+    }
 }

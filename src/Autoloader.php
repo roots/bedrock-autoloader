@@ -113,15 +113,47 @@ class Autoloader
     }
 
     /**
+     * Discover autoloadable plugins in the mu-plugins directory.
+     *
+     * Uses get_plugins() when WP_PLUGIN_DIR exists, otherwise falls back
+     * to scanning WPMU_PLUGIN_DIR subdirectories for valid plugin headers.
+     *
+     * @return array Plugin data keyed by relative path (e.g. 'plugin-dir/plugin-file.php')
+     */
+    private function discoverPlugins()
+    {
+        require_once ABSPATH . 'wp-admin/includes/plugin.php';
+
+        if (is_dir(WP_PLUGIN_DIR)) {
+            return get_plugins($this->relativePath);
+        }
+
+        $plugins = [];
+
+        foreach ((array) glob(WPMU_PLUGIN_DIR . '/*/*.php', GLOB_NOSORT) as $file) {
+            $data = get_plugin_data($file, false, false);
+
+            if (empty($data['Name'])) {
+                continue;
+            }
+
+            $relativePath = basename(dirname($file)) . '/' . basename($file);
+            $plugins[$relativePath] = $data;
+        }
+
+        ksort($plugins);
+
+        return $plugins;
+    }
+
+    /**
      * Get the plugins and mu-plugins from the mu-plugin path and remove duplicates.
      * Check cache against current plugins for newly activated plugins.
      * After that, we can update the cache.
      */
     private function updateCache()
     {
-        require_once ABSPATH . 'wp-admin/includes/plugin.php';
-
-        $this->autoPlugins = get_plugins($this->relativePath);
+        $this->autoPlugins = $this->discoverPlugins();
         $this->muPlugins   = get_mu_plugins();
         $plugins           = array_diff_key($this->autoPlugins, $this->muPlugins);
         $rebuild           = !isset($this->cache['plugins']);
