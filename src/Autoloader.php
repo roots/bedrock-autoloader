@@ -25,11 +25,11 @@ class Autoloader
     /** @var int Number of plugins */
     private $count;
 
-    /** @var array Newly activated plugins */
-    private $activated;
-
     /** @var string Relative path to the mu-plugins dir */
     private $relativePath;
+
+    /** @var array Entrypoints of all loaded plugins */
+    private $loadedPluginEntryPoints;
 
     /**
      * Create singleton, populate vars, and set WordPress hooks
@@ -60,9 +60,11 @@ class Autoloader
         $this->validatePlugins();
         $this->countPlugins();
 
-        array_map(static function () {
-            include_once WPMU_PLUGIN_DIR . '/' . func_get_args()[0];
-        }, array_keys($this->cache['plugins']));
+        $filtered = apply_filters('bedrock_autoloader_load_plugins', array_keys($this->cache['plugins']), $this->cache['plugins']);
+        $this->loadedPluginEntryPoints = array_values(array_intersect((array) $filtered, array_keys($this->cache['plugins'])));
+        array_map(static function ($plugin) {
+            include_once WPMU_PLUGIN_DIR . '/' . $plugin;
+        }, $this->loadedPluginEntryPoints);
 
         add_action('plugins_loaded', [$this, 'pluginHooks'], -9999);
     }
@@ -123,10 +125,17 @@ class Autoloader
         $this->muPlugins   = get_mu_plugins();
         $plugins           = array_diff_key($this->autoPlugins, $this->muPlugins);
         $rebuild           = !isset($this->cache['plugins']);
-        $this->activated   = $rebuild ? $plugins : array_diff_key($plugins, $this->cache['plugins']);
+        $newPlugins        = array_intersect_key(
+            array_merge(
+                (array) get_site_option('bedrock_autoloader_new_plugins', []),
+                $rebuild ? $plugins : array_diff_key($plugins, $this->cache['plugins'])
+            ),
+            $plugins
+        );
         $this->cache       = ['plugins' => $plugins, 'count' => $this->countPlugins()];
 
         update_site_option('bedrock_autoloader', $this->cache);
+        update_site_option('bedrock_autoloader_new_plugins', $newPlugins);
     }
 
     /**
@@ -136,13 +145,16 @@ class Autoloader
      */
     public function pluginHooks()
     {
-        if (!is_array($this->activated)) {
-            return;
-        }
-
-        foreach ($this->activated as $plugin_file => $plugin_info) {
+        $newPlugins = (array) get_site_option('bedrock_autoloader_new_plugins', []);
+        $newPluginsKeys = array_keys($newPlugins);
+        foreach ($newPluginsKeys as $plugin_file) {
+            if (!in_array($plugin_file, $this->loadedPluginEntryPoints)) {
+                continue;
+            }
             do_action('activate_' . $plugin_file);
+            unset($newPlugins[$plugin_file]);
         }
+        update_site_option('bedrock_autoloader_new_plugins', $newPlugins);
     }
 
     /**
