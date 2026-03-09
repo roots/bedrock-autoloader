@@ -11,7 +11,7 @@ class AutoloaderTest extends \WP_Mock\Tools\TestCase
         '20-fake/20-fake.php' => ['Name' => '0w0', 'Version' => '1.0.0'],
     ];
 
-    protected function setUp(): void
+    public function setUp(): void
     {
         \WP_Mock::setUp();
 
@@ -21,7 +21,7 @@ class AutoloaderTest extends \WP_Mock\Tools\TestCase
         $instance->setValue(null, null);
     }
 
-    protected function tearDown(): void
+    public function tearDown(): void
     {
         \WP_Mock::tearDown();
     }
