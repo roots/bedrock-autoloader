@@ -125,7 +125,10 @@ class Autoloader
         require_once ABSPATH . 'wp-admin/includes/plugin.php';
 
         if (is_dir(WP_PLUGIN_DIR)) {
-            return get_plugins($this->relativePath);
+            $plugins = get_plugins($this->relativePath);
+            if (!empty($plugins)) {
+                return $plugins;
+            }
         }
 
         $plugins = [];
