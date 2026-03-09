@@ -1,0 +1,5 @@
+{
+    "rules": {
+        "php_unit_set_up_tear_down_visibility": false
+    }
+}
