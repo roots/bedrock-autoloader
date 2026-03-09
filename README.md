@@ -5,17 +5,11 @@
 </p>
 
 <p align="center">
-  <a href="LICENSE.md">
-    <img alt="MIT License" src="https://img.shields.io/github/license/roots/bedrock-autoloader?color=%23525ddc&style=flat-square" />
-  </a>
-
-  <a href="https://packagist.org/packages/roots/bedrock-autoloader">
-    <img alt="Packagist" src="https://img.shields.io/packagist/v/roots/bedrock-autoloader.svg?style=flat-square" />
-  </a>
-
-  <a href="https://twitter.com/rootswp">
-    <img alt="Follow Roots" src="https://img.shields.io/twitter/follow/rootswp.svg?style=flat-square&color=1da1f2" />
-  </a>
+  <a href="https://packagist.org/packages/roots/bedrock-autoloader"><img alt="Packagist" src="https://img.shields.io/packagist/v/roots/bedrock-autoloader.svg?style=flat-square"></a>
+  <a href="https://packagist.org/packages/roots/bedrock-autoloader"><img alt="Packagist Downloads" src="https://img.shields.io/packagist/dt/roots/bedrock-autoloader?label=downloads&colorB=2b3072&colorA=525ddc&style=flat-square"></a>
+  <a href="https://github.com/roots/bedrock-autoloader/actions/workflows/tests.yml"><img alt="Build Status" src="https://img.shields.io/github/actions/workflow/status/roots/bedrock-autoloader/tests.yml?branch=main&logo=github&label=CI&style=flat-square"></a>
+  <a href="https://twitter.com/rootswp"><img alt="Follow Roots" src="https://img.shields.io/badge/follow%20@rootswp-1da1f2?logo=twitter&logoColor=ffffff&message=&style=flat-square"></a>
+  <a href="https://github.com/sponsors/roots"><img src="https://img.shields.io/badge/sponsor%20roots-525ddc?logo=github&style=flat-square&logoColor=ffffff&message=" alt="Sponsor Roots"></a>
 </p>
 
 <p align="center">
@@ -23,9 +17,23 @@
 </p>
 
 <p align="center">
-  <a href="https://roots.io/">Roots Website</a> | <a href="https://docs.roots.io/bedrock/master/installation/">Bedrock Documentation</a> | <a href="https://docs.roots.io/bedrock/master/mu-plugin-autoloader/">Autoloader Documentation</a>
+  <a href="https://roots.io/">Roots Website</a> | <a href="https://roots.io/bedrock/docs/installation/">Bedrock Documentation</a> | <a href="https://roots.io/bedrock/docs/mu-plugin-autoloader/">Autoloader Documentation</a>
 </p>
 
 ## Overview
 
 Bedrock Autoloader enables standard plugins to be required just like must-use plugins. The autoloaded plugins are included after all mu-plugins and standard plugins have been loaded. An asterisk next to the name of the plugin designates the plugins that have been autoloaded.
+
+## Support us
+
+We're dedicated to pushing modern WordPress development forward through our open source projects, and we need your support to keep building. You can support our work by purchasing [Radicle](https://roots.io/radicle/), our recommended WordPress stack, or by [sponsoring us on GitHub](https://github.com/sponsors/roots). Every contribution directly helps us create better tools for the WordPress ecosystem.
+
+## Community
+
+Keep track of development and community news.
+
+- Join us on Discord by [sponsoring us on GitHub](https://github.com/sponsors/roots)
+- Join us on [Roots Discourse](https://discourse.roots.io/)
+- Follow [@rootswp on Twitter](https://twitter.com/rootswp)
+- Follow the [Roots Blog](https://roots.io/blog/)
+- Subscribe to the [Roots Newsletter](https://roots.io/subscribe/)
