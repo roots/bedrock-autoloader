@@ -66,7 +66,7 @@ class Autoloader
             include_once WPMU_PLUGIN_DIR . '/' . $plugin;
         }, $this->loadedPluginEntryPoints);
 
-        add_action('plugins_loaded', [$this, 'pluginHooks'], -9999);
+        add_action('init', [$this, 'pluginHooks'], 0);
     }
 
     /**
