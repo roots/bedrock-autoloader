@@ -2,7 +2,7 @@
 
 namespace unit;
 
-use Roots\Bedrock\Autoloader;
+use Roots\Bedrock\Autoloader\Autoloader;
 
 class AutoloaderTest extends \WP_Mock\Tools\TestCase
 {

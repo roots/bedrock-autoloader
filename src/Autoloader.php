@@ -1,6 +1,6 @@
 <?php
 
-namespace Roots\Bedrock;
+namespace Roots\Bedrock\Autoloader;
 
 /**
  * Class Autoloader

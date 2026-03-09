@@ -35,7 +35,7 @@
   },
   "autoload": {
     "psr-4": {
-      "Roots\\Bedrock\\": "src/"
+      "Roots\\Bedrock\\Autoloader\\": "src/"
     }
   },
   "require-dev": {
