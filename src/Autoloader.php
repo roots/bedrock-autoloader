@@ -60,9 +60,10 @@ class Autoloader
         $this->validatePlugins();
         $this->countPlugins();
 
-        $this->loadedPluginEntryPoints = apply_filters('bedrock_autoloader_load_plugins', array_keys($this->cache['plugins']), $this->cache['plugins']);
-        array_map(static function () {
-            include_once WPMU_PLUGIN_DIR . '/' . func_get_args()[0];
+        $filtered = apply_filters('bedrock_autoloader_load_plugins', array_keys($this->cache['plugins']), $this->cache['plugins']);
+        $this->loadedPluginEntryPoints = array_values(array_intersect((array) $filtered, array_keys($this->cache['plugins'])));
+        array_map(static function ($plugin) {
+            include_once WPMU_PLUGIN_DIR . '/' . $plugin;
         }, $this->loadedPluginEntryPoints);
 
         add_action('plugins_loaded', [$this, 'pluginHooks'], -9999);
@@ -124,9 +125,12 @@ class Autoloader
         $this->muPlugins   = get_mu_plugins();
         $plugins           = array_diff_key($this->autoPlugins, $this->muPlugins);
         $rebuild           = !isset($this->cache['plugins']);
-        $newPlugins        = array_merge(
-            get_site_option('bedrock_autoloader_new_plugins', []),
-            $rebuild ? $plugins : array_diff_key($plugins, $this->cache['plugins'])
+        $newPlugins        = array_intersect_key(
+            array_merge(
+                (array) get_site_option('bedrock_autoloader_new_plugins', []),
+                $rebuild ? $plugins : array_diff_key($plugins, $this->cache['plugins'])
+            ),
+            $plugins
         );
         $this->cache       = ['plugins' => $plugins, 'count' => $this->countPlugins()];
 
@@ -141,7 +145,7 @@ class Autoloader
      */
     public function pluginHooks()
     {
-        $newPlugins = get_site_option('bedrock_autoloader_new_plugins', []);
+        $newPlugins = (array) get_site_option('bedrock_autoloader_new_plugins', []);
         $newPluginsKeys = array_keys($newPlugins);
         foreach ($newPluginsKeys as $plugin_file) {
             if (!in_array($plugin_file, $this->loadedPluginEntryPoints)) {

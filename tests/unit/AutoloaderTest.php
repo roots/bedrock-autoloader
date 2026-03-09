@@ -6,9 +6,19 @@ use Roots\Bedrock\Autoloader;
 
 class AutoloaderTest extends \WP_Mock\Tools\TestCase
 {
+    private static $plugins = [
+        '10-fake/10-fake.php' => ['Name' => 'UwU', 'Version' => '1.0.0'],
+        '20-fake/20-fake.php' => ['Name' => '0w0', 'Version' => '1.0.0'],
+    ];
+
     public function setUp(): void
     {
         \WP_Mock::setUp();
+
+        $reflect = new \ReflectionClass(Autoloader::class);
+        $instance = $reflect->getProperty('instance');
+        $instance->setAccessible(true);
+        $instance->setValue(null, null);
     }
 
     public function tearDown(): void
@@ -16,68 +26,215 @@ class AutoloaderTest extends \WP_Mock\Tools\TestCase
         \WP_Mock::tearDown();
     }
 
-    /*
-    public function testShowInAdmin()
+    private function getProperty(Autoloader $a, string $name)
     {
+        $reflect = new \ReflectionClass(Autoloader::class);
+        $prop = $reflect->getProperty($name);
+        $prop->setAccessible(true);
+        return $prop->getValue($a);
     }
-    */
+
+    private function setProperty(Autoloader $a, string $name, $value): void
+    {
+        $reflect = new \ReflectionClass(Autoloader::class);
+        $prop = $reflect->getProperty($name);
+        $prop->setAccessible(true);
+        $prop->setValue($a, $value);
+    }
+
+    private function mockBaseWpFunctions(): void
+    {
+        \WP_Mock::userFunction('is_admin', ['return' => false]);
+        \WP_Mock::userFunction('get_plugins', [
+            'args' => '/../mu-plugins',
+            'return' => self::$plugins,
+        ]);
+        \WP_Mock::userFunction('get_mu_plugins', ['return' => []]);
+        \WP_Mock::userFunction('get_site_option', [
+            'args' => ['bedrock_autoloader'],
+            'return' => false,
+        ]);
+        \WP_Mock::userFunction('get_site_option', [
+            'args' => ['bedrock_autoloader_new_plugins', []],
+            'return' => [],
+        ]);
+        \WP_Mock::userFunction('update_site_option', ['return' => true]);
+        \WP_Mock::userFunction('add_action', ['return' => true]);
+        \WP_Mock::userFunction('add_filter', ['return' => true]);
+    }
 
     public function testLoadPlugins()
     {
-        \WP_Mock::userFunction(
-            'is_admin',
-            ['return' => true]
-        );
-        \WP_Mock::userFunction(
-            'get_plugins',
-            [
-                'args' => '/../mu-plugins',
-                'return' => [
-                    '10-fake/10-fake.php' => [
-                        'Name' => 'UwU',
-                        'Version' => '1.0.0',
-                    ],
-                    '20-fake/20-fake.php' => [
-                        'Name' => '0w0',
-                        'Version' => '1.0.0',
-                    ],
-                ]
-            ]
-        );
-        \WP_Mock::userFunction(
-            'get_mu_plugins',
-            ['return' => []]
-        );
-        \WP_Mock::userFunction(
-            'get_site_option',
-            ['args' => 'bedrock_autoloader', 'return' => false]
-        );
-        \WP_Mock::userFunction(
-            'update_site_option',
-            ['args' => ['bedrock_autoloader', \WP_Mock\Functions::type('array')], 'return' => true]
-        );
-
-        // can't test this due to side-effects in constructor
-        // https://github.com/roots/bedrock-autoloader/issues/4
-        // \WP_Mock::expectFilterAdded('show_advanced_plugins', $a);
+        $this->mockBaseWpFunctions();
 
         $a = new Autoloader();
-        $a->loadPlugins();
 
-        // TODO: Testing private fields is nasty. We need to refactor Autoloader to be testable
+        $cache = $this->getProperty($a, 'cache');
+        $this->assertCount(2, $cache['plugins']);
+        $this->assertEquals(2, $cache['count']);
+
+        $loaded = $this->getProperty($a, 'loadedPluginEntryPoints');
+        $this->assertCount(2, $loaded);
+        $this->assertContains('10-fake/10-fake.php', $loaded);
+        $this->assertContains('20-fake/20-fake.php', $loaded);
+    }
+
+    public function testFilteredPluginDoesNotLoad()
+    {
+        $this->mockBaseWpFunctions();
+
+        \WP_Mock::onFilter('bedrock_autoloader_load_plugins')
+            ->with(array_keys(self::$plugins), self::$plugins)
+            ->reply(['20-fake/20-fake.php']);
+
+        $a = new Autoloader();
+
+        $loaded = $this->getProperty($a, 'loadedPluginEntryPoints');
+        $this->assertCount(1, $loaded);
+        $this->assertContains('20-fake/20-fake.php', $loaded);
+        $this->assertNotContains('10-fake/10-fake.php', $loaded);
+    }
+
+    public function testFilteredPluginActivationIsDeferred()
+    {
         $reflect = new \ReflectionClass(Autoloader::class);
-        $cacheProp = $reflect->getProperty('cache');
-        $cacheProp->setAccessible(true);
+        $a = $reflect->newInstanceWithoutConstructor();
 
-        $cache = $cacheProp->getValue($a);
-        $this->assertCount(2, $cache['plugins'], 'plugin cache is not set properly');
-        $this->assertEquals(2, $cache['count'], 'plugin count is wrong');
+        // 10-fake was filtered out on this request
+        $this->setProperty($a, 'loadedPluginEntryPoints', ['20-fake/20-fake.php']);
 
-        $this->assertTrue(defined('fake_OwO'), 'mu plugins were not loaded');
-        $this->assertEquals('loaded', fake_OwO);
-        $this->assertEquals('loaded', fake_UwU);
+        $newPlugins = [
+            '10-fake/10-fake.php' => self::$plugins['10-fake/10-fake.php'],
+        ];
 
-        // yuck
+        \WP_Mock::userFunction('get_site_option', [
+            'args' => ['bedrock_autoloader_new_plugins', []],
+            'return' => $newPlugins,
+        ]);
 
+        $activatedPlugins = [];
+        \WP_Mock::userFunction('do_action', [
+            'return' => function () use (&$activatedPlugins) {
+                $activatedPlugins[] = func_get_args()[0];
+            },
+        ]);
+
+        \WP_Mock::userFunction('update_site_option', [
+            'args' => ['bedrock_autoloader_new_plugins', $newPlugins],
+            'return' => true,
+        ]);
+
+        $a->pluginHooks();
+
+        // activate_ hook should NOT have fired for the filtered plugin
+        $this->assertNotContains('activate_10-fake/10-fake.php', $activatedPlugins);
+        $this->assertConditionsMet();
+    }
+
+    public function testUnfilteredPluginGetsActivateHook()
+    {
+        $reflect = new \ReflectionClass(Autoloader::class);
+        $a = $reflect->newInstanceWithoutConstructor();
+
+        // 10-fake is now loaded (was previously filtered out)
+        $this->setProperty($a, 'loadedPluginEntryPoints', [
+            '10-fake/10-fake.php',
+            '20-fake/20-fake.php',
+        ]);
+
+        $newPlugins = [
+            '10-fake/10-fake.php' => self::$plugins['10-fake/10-fake.php'],
+        ];
+
+        \WP_Mock::userFunction('get_site_option', [
+            'args' => ['bedrock_autoloader_new_plugins', []],
+            'return' => $newPlugins,
+        ]);
+
+        \WP_Mock::expectAction('activate_10-fake/10-fake.php');
+
+        \WP_Mock::userFunction('update_site_option', [
+            'args' => ['bedrock_autoloader_new_plugins', []],
+            'return' => true,
+        ]);
+
+        $a->pluginHooks();
+
+        $this->assertConditionsMet();
+    }
+
+    public function testRemovedPluginIsPrunedFromPending()
+    {
+        \WP_Mock::userFunction('is_admin', ['return' => false]);
+        \WP_Mock::userFunction('get_plugins', [
+            'args' => '/../mu-plugins',
+            'return' => [
+                '10-fake/10-fake.php' => self::$plugins['10-fake/10-fake.php'],
+            ],
+        ]);
+        \WP_Mock::userFunction('get_mu_plugins', ['return' => []]);
+        \WP_Mock::userFunction('get_site_option', [
+            'args' => ['bedrock_autoloader'],
+            'return' => false,
+        ]);
+
+        // Stale plugin that was removed from disk
+        \WP_Mock::userFunction('get_site_option', [
+            'args' => ['bedrock_autoloader_new_plugins', []],
+            'return' => [
+                'removed-plugin/removed-plugin.php' => ['Name' => 'Gone', 'Version' => '1.0.0'],
+            ],
+        ]);
+
+        // Pruned new_plugins should only contain 10-fake
+        $expectedNewPlugins = [
+            '10-fake/10-fake.php' => self::$plugins['10-fake/10-fake.php'],
+        ];
+        \WP_Mock::userFunction('update_site_option', [
+            'args' => ['bedrock_autoloader_new_plugins', $expectedNewPlugins],
+            'return' => true,
+        ]);
+        \WP_Mock::userFunction('update_site_option', [
+            'args' => ['bedrock_autoloader', \WP_Mock\Functions::type('array')],
+            'return' => true,
+        ]);
+        \WP_Mock::userFunction('add_action', ['return' => true]);
+        \WP_Mock::userFunction('add_filter', ['return' => true]);
+
+        $a = new Autoloader();
+
+        $cache = $this->getProperty($a, 'cache');
+        $this->assertArrayNotHasKey('removed-plugin/removed-plugin.php', $cache['plugins']);
+    }
+
+    public function testMalformedFilterReturnIsSanitized()
+    {
+        $this->mockBaseWpFunctions();
+
+        \WP_Mock::onFilter('bedrock_autoloader_load_plugins')
+            ->with(array_keys(self::$plugins), self::$plugins)
+            ->reply('not-an-array');
+
+        $a = new Autoloader();
+
+        $loaded = $this->getProperty($a, 'loadedPluginEntryPoints');
+        $this->assertIsArray($loaded);
+        $this->assertEmpty($loaded);
+    }
+
+    public function testFilterCannotInjectArbitraryPaths()
+    {
+        $this->mockBaseWpFunctions();
+
+        \WP_Mock::onFilter('bedrock_autoloader_load_plugins')
+            ->with(array_keys(self::$plugins), self::$plugins)
+            ->reply(['../../etc/passwd', '20-fake/20-fake.php']);
+
+        $a = new Autoloader();
+
+        $loaded = $this->getProperty($a, 'loadedPluginEntryPoints');
+        $this->assertCount(1, $loaded);
+        $this->assertContains('20-fake/20-fake.php', $loaded);
+        $this->assertNotContains('../../etc/passwd', $loaded);
     }
 }
