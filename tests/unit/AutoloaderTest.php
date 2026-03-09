@@ -61,6 +61,7 @@ class AutoloaderTest extends \WP_Mock\Tools\TestCase
         \WP_Mock::userFunction('update_site_option', ['return' => true]);
         \WP_Mock::userFunction('add_action', ['return' => true]);
         \WP_Mock::userFunction('add_filter', ['return' => true]);
+        \WP_Mock::userFunction('get_plugin_data', ['return' => ['Name' => '']]);
     }
 
     public function testLoadPlugins()
@@ -236,5 +237,71 @@ class AutoloaderTest extends \WP_Mock\Tools\TestCase
         $this->assertCount(1, $loaded);
         $this->assertContains('20-fake/20-fake.php', $loaded);
         $this->assertNotContains('../../etc/passwd', $loaded);
+    }
+
+    /**
+     * Run a callback with WP_PLUGIN_DIR temporarily removed,
+     * exercising the fallback discovery path.
+     */
+    private function withFallbackDiscovery(callable $callback): void
+    {
+        $pluginsDir = WP_PLUGIN_DIR;
+        $tempDir = $pluginsDir . '_disabled';
+        rename($pluginsDir, $tempDir);
+
+        try {
+            \WP_Mock::userFunction('get_plugin_data', [
+                'return' => function ($file) {
+                    $relativePath = basename(dirname($file)) . '/' . basename($file);
+                    $map = [
+                        '10-fake/10-fake.php' => ['Name' => 'UwU', 'Version' => '1.0.0'],
+                        '20-fake/20-fake.php' => ['Name' => '0w0', 'Version' => '1.0.0'],
+                    ];
+                    return $map[$relativePath] ?? ['Name' => ''];
+                },
+            ]);
+
+            $reflect = new \ReflectionClass(Autoloader::class);
+            $a = $reflect->newInstanceWithoutConstructor();
+            $this->setProperty($a, 'relativePath', '/../' . basename(WPMU_PLUGIN_DIR));
+
+            $callback($a, $reflect);
+        } finally {
+            rename($tempDir, $pluginsDir);
+        }
+    }
+
+    public function testFallbackDiscoveryWhenPluginsDirMissing()
+    {
+        $this->withFallbackDiscovery(function (Autoloader $a, \ReflectionClass $reflect) {
+            $method = $reflect->getMethod('discoverPlugins');
+            $method->setAccessible(true);
+            $plugins = $method->invoke($a);
+
+            $this->assertCount(2, $plugins);
+            $this->assertArrayHasKey('10-fake/10-fake.php', $plugins);
+            $this->assertArrayHasKey('20-fake/20-fake.php', $plugins);
+
+            $keys = array_keys($plugins);
+            $this->assertEquals('10-fake/10-fake.php', $keys[0]);
+            $this->assertEquals('20-fake/20-fake.php', $keys[1]);
+        });
+    }
+
+    public function testCountExcludesNonPluginDirectories()
+    {
+        $this->withFallbackDiscovery(function (Autoloader $a, \ReflectionClass $reflect) {
+            $discover = $reflect->getMethod('discoverPlugins');
+            $discover->setAccessible(true);
+            $plugins = $discover->invoke($a);
+
+            $countDirs = $reflect->getMethod('countPluginDirs');
+            $countDirs->setAccessible(true);
+            $count = $countDirs->invoke($a, $plugins);
+
+            // fixtures/mu-plugins has 3 subdirs (10-fake, 20-fake, not-a-plugin)
+            // but only 2 are valid plugins — count should be 2
+            $this->assertEquals(2, $count);
+        });
     }
 }

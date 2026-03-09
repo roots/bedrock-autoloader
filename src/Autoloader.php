@@ -66,7 +66,7 @@ class Autoloader
             include_once WPMU_PLUGIN_DIR . '/' . $plugin;
         }, $this->loadedPluginEntryPoints);
 
-        add_action('plugins_loaded', [$this, 'pluginHooks'], -9999);
+        add_action('init', [$this, 'pluginHooks'], 0);
     }
 
     /**
@@ -104,12 +104,46 @@ class Autoloader
     {
         $cache = get_site_option('bedrock_autoloader');
 
-        if ($cache === false || (isset($cache['plugins'], $cache['count']) && count($cache['plugins']) !== $cache['count'])) {
+        if ($cache === false || (isset($cache['plugins'], $cache['count']) && $this->countPluginDirs($cache['plugins']) !== $cache['count'])) {
             $this->updateCache();
             return;
         }
 
         $this->cache = $cache;
+    }
+
+    /**
+     * Discover autoloadable plugins in the mu-plugins directory.
+     *
+     * Uses get_plugins() when WP_PLUGIN_DIR exists, otherwise falls back
+     * to scanning WPMU_PLUGIN_DIR subdirectories for valid plugin headers.
+     *
+     * @return array Plugin data keyed by relative path (e.g. 'plugin-dir/plugin-file.php')
+     */
+    private function discoverPlugins()
+    {
+        require_once ABSPATH . 'wp-admin/includes/plugin.php';
+
+        if (is_dir(WP_PLUGIN_DIR)) {
+            return get_plugins($this->relativePath);
+        }
+
+        $plugins = [];
+
+        foreach ((array) glob(WPMU_PLUGIN_DIR . '/*/*.php', GLOB_NOSORT) as $file) {
+            $data = get_plugin_data($file, false, false);
+
+            if (empty($data['Name'])) {
+                continue;
+            }
+
+            $relativePath = basename(dirname($file)) . '/' . basename($file);
+            $plugins[$relativePath] = $data;
+        }
+
+        ksort($plugins);
+
+        return $plugins;
     }
 
     /**
@@ -119,9 +153,7 @@ class Autoloader
      */
     private function updateCache()
     {
-        require_once ABSPATH . 'wp-admin/includes/plugin.php';
-
-        $this->autoPlugins = get_plugins($this->relativePath);
+        $this->autoPlugins = $this->discoverPlugins();
         $this->muPlugins   = get_mu_plugins();
         $plugins           = array_diff_key($this->autoPlugins, $this->muPlugins);
         $rebuild           = !isset($this->cache['plugins']);
@@ -132,7 +164,8 @@ class Autoloader
             ),
             $plugins
         );
-        $this->cache       = ['plugins' => $plugins, 'count' => $this->countPlugins()];
+        $this->count       = $this->countPluginDirs($plugins);
+        $this->cache       = ['plugins' => $plugins, 'count' => $this->count];
 
         update_site_option('bedrock_autoloader', $this->cache);
         update_site_option('bedrock_autoloader_new_plugins', $newPlugins);
@@ -171,12 +204,23 @@ class Autoloader
     }
 
     /**
-     * Count the number of autoloaded plugins.
+     * Count unique top-level plugin directories from a plugin map.
      *
-     * Count our plugins (but only once) by counting the top level folders in the
-     * mu-plugins dir. If it's more or less than last time, update the cache.
-     *
-     * @return int Number of autoloaded plugins.
+     * @param array $plugins Plugin data keyed by relative path
+     * @return int Number of unique plugin directories
+     */
+    private function countPluginDirs(array $plugins)
+    {
+        $dirs = [];
+        foreach (array_keys($plugins) as $entryPoint) {
+            $dirs[dirname($entryPoint)] = true;
+        }
+        return count($dirs);
+    }
+
+    /**
+     * Count autoloaded plugins on the filesystem and trigger a cache
+     * update if the count has changed since last check.
      */
     private function countPlugins()
     {
@@ -184,7 +228,9 @@ class Autoloader
             return $this->count;
         }
 
-        $count = count(glob(WPMU_PLUGIN_DIR . '/*/', GLOB_ONLYDIR | GLOB_NOSORT));
+        $discovered = $this->discoverPlugins();
+        $muPlugins = get_mu_plugins();
+        $count = $this->countPluginDirs(array_diff_key($discovered, $muPlugins));
 
         if (!isset($this->cache['count']) || $count !== $this->cache['count']) {
             $this->count = $count;
