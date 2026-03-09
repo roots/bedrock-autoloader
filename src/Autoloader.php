@@ -104,7 +104,7 @@ class Autoloader
     {
         $cache = get_site_option('bedrock_autoloader');
 
-        if ($cache === false || (isset($cache['plugins'], $cache['count']) && count($cache['plugins']) !== $cache['count'])) {
+        if ($cache === false || (isset($cache['plugins'], $cache['count']) && $this->countPluginDirs($cache['plugins']) !== $cache['count'])) {
             $this->updateCache();
             return;
         }
@@ -164,7 +164,8 @@ class Autoloader
             ),
             $plugins
         );
-        $this->cache       = ['plugins' => $plugins, 'count' => $this->countPlugins()];
+        $this->count       = $this->countPluginDirs($plugins);
+        $this->cache       = ['plugins' => $plugins, 'count' => $this->count];
 
         update_site_option('bedrock_autoloader', $this->cache);
         update_site_option('bedrock_autoloader_new_plugins', $newPlugins);
@@ -203,12 +204,23 @@ class Autoloader
     }
 
     /**
-     * Count the number of autoloaded plugins.
+     * Count unique top-level plugin directories from a plugin map.
      *
-     * Count our plugins (but only once) by counting the top level folders in the
-     * mu-plugins dir. If it's more or less than last time, update the cache.
-     *
-     * @return int Number of autoloaded plugins.
+     * @param array $plugins Plugin data keyed by relative path
+     * @return int Number of unique plugin directories
+     */
+    private function countPluginDirs(array $plugins)
+    {
+        $dirs = [];
+        foreach (array_keys($plugins) as $entryPoint) {
+            $dirs[dirname($entryPoint)] = true;
+        }
+        return count($dirs);
+    }
+
+    /**
+     * Count autoloaded plugins on the filesystem and trigger a cache
+     * update if the count has changed since last check.
      */
     private function countPlugins()
     {
@@ -216,7 +228,9 @@ class Autoloader
             return $this->count;
         }
 
-        $count = count(glob(WPMU_PLUGIN_DIR . '/*/', GLOB_ONLYDIR | GLOB_NOSORT));
+        $discovered = $this->discoverPlugins();
+        $muPlugins = get_mu_plugins();
+        $count = $this->countPluginDirs(array_diff_key($discovered, $muPlugins));
 
         if (!isset($this->cache['count']) || $count !== $this->cache['count']) {
             $this->count = $count;
