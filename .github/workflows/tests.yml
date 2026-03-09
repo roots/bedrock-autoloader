@@ -20,4 +20,5 @@ jobs:
         coverage: xdebug
     - run: composer validate
     - run: composer install --prefer-dist --no-interaction
+    - run: vendor/bin/pint --test
     - run: vendor/bin/phpunit --coverage-text
