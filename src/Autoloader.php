@@ -23,7 +23,10 @@ class Autoloader
     /** @var int Number of plugins */
     private $count;
 
-    /** @var array Entrypoints of all loaded plugins */
+    /** @var array Plugins selected for loading after discovery and filtering */
+    private $selectedPluginEntryPoints;
+
+    /** @var array Plugins confirmed as included at file scope */
     private $loadedPluginEntryPoints;
 
     /** @var bool Whether boot() has already run */
@@ -34,37 +37,57 @@ class Autoloader
     ) {}
 
     /**
-     * Register hooks and load plugins. Idempotent.
+     * Discover, filter, and return absolute paths to plugin entrypoints.
+     *
+     * Returns the same list on subsequent calls.
+     *
+     * @return array<string> Absolute paths for inclusion at file scope
      */
-    public function boot(): void
+    public function boot(): array
     {
-        if ($this->booted) {
-            return;
+        if (! $this->booted) {
+            $this->booted = true;
+
+            if (is_admin()) {
+                add_filter('show_advanced_plugins', [$this, 'showInAdmin'], 0, 2);
+            }
+
+            $this->loadPlugins();
         }
 
-        $this->booted = true;
-
-        if (is_admin()) {
-            add_filter('show_advanced_plugins', [$this, 'showInAdmin'], 0, 2);
-        }
-
-        $this->loadPlugins();
+        return array_map(
+            fn ($plugin) => $this->muPluginDir.'/'.$plugin,
+            $this->selectedPluginEntryPoints ?? []
+        );
     }
 
     /**
      * Run some checks then autoload our plugins.
      */
-    public function loadPlugins()
+    private function loadPlugins()
     {
         $this->checkCache();
         $this->validatePlugins();
         $this->countPlugins();
 
         $filtered = apply_filters('bedrock_autoloader_load_plugins', array_keys($this->cache['plugins']), $this->cache['plugins']);
-        $this->loadedPluginEntryPoints = array_values(array_intersect((array) $filtered, array_keys($this->cache['plugins'])));
-        array_map(function ($plugin) {
-            include_once $this->muPluginDir.'/'.$plugin;
-        }, $this->loadedPluginEntryPoints);
+        $this->selectedPluginEntryPoints = array_values(array_intersect((array) $filtered, array_keys($this->cache['plugins'])));
+    }
+
+    /**
+     * Mark plugins as loaded after file-scope includes and register activation hooks.
+     *
+     * Must be called by the bootstrap file after including the plugins returned
+     * by boot(). This ensures activation hooks only fire for plugins whose
+     * files were actually included. Idempotent.
+     */
+    public function markLoaded(): void
+    {
+        if (isset($this->loadedPluginEntryPoints)) {
+            return;
+        }
+
+        $this->loadedPluginEntryPoints = $this->selectedPluginEntryPoints ?? [];
 
         add_action('init', [$this, 'pluginHooks'], 0);
     }
@@ -176,6 +199,10 @@ class Autoloader
      */
     public function pluginHooks()
     {
+        if (! isset($this->loadedPluginEntryPoints)) {
+            return;
+        }
+
         $newPlugins = (array) get_site_option('bedrock_autoloader_new_plugins', []);
         $newPluginsKeys = array_keys($newPlugins);
         foreach ($newPluginsKeys as $plugin_file) {
