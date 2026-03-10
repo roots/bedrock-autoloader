@@ -78,6 +78,7 @@ class AutoloaderTest extends \WP_Mock\Tools\TestCase
 
         $this->assertNull($this->getProperty($a, 'cache'));
         $this->assertNull($this->getProperty($a, 'autoPlugins'));
+        $this->assertNull($this->getProperty($a, 'selectedPluginEntryPoints'));
         $this->assertNull($this->getProperty($a, 'loadedPluginEntryPoints'));
         $this->assertFalse($this->getProperty($a, 'booted'));
     }
@@ -87,15 +88,16 @@ class AutoloaderTest extends \WP_Mock\Tools\TestCase
         $this->mockBaseWpFunctions();
 
         $a = $this->makeAutoloader();
-        $a->boot();
+        $first = $a->boot();
 
         $cacheAfterFirst = $this->getProperty($a, 'cache');
 
-        // Second boot should be a no-op — loadPlugins won't run again
-        $a->boot();
+        // Second boot should return same list without re-running loadPlugins
+        $second = $a->boot();
 
         $cacheAfterSecond = $this->getProperty($a, 'cache');
         $this->assertSame($cacheAfterFirst, $cacheAfterSecond);
+        $this->assertSame($first, $second);
         $this->assertTrue($this->getProperty($a, 'booted'));
     }
 
@@ -110,10 +112,13 @@ class AutoloaderTest extends \WP_Mock\Tools\TestCase
         $this->assertCount(2, $cache['plugins']);
         $this->assertEquals(2, $cache['count']);
 
-        $loaded = $this->getProperty($a, 'loadedPluginEntryPoints');
-        $this->assertCount(2, $loaded);
-        $this->assertContains('10-fake/10-fake.php', $loaded);
-        $this->assertContains('20-fake/20-fake.php', $loaded);
+        $selected = $this->getProperty($a, 'selectedPluginEntryPoints');
+        $this->assertCount(2, $selected);
+        $this->assertContains('10-fake/10-fake.php', $selected);
+        $this->assertContains('20-fake/20-fake.php', $selected);
+
+        // loadedPluginEntryPoints should still be null until markLoaded() is called
+        $this->assertNull($this->getProperty($a, 'loadedPluginEntryPoints'));
     }
 
     public function test_filtered_plugin_does_not_load()
@@ -127,10 +132,10 @@ class AutoloaderTest extends \WP_Mock\Tools\TestCase
         $a = $this->makeAutoloader();
         $a->boot();
 
-        $loaded = $this->getProperty($a, 'loadedPluginEntryPoints');
-        $this->assertCount(1, $loaded);
-        $this->assertContains('20-fake/20-fake.php', $loaded);
-        $this->assertNotContains('10-fake/10-fake.php', $loaded);
+        $selected = $this->getProperty($a, 'selectedPluginEntryPoints');
+        $this->assertCount(1, $selected);
+        $this->assertContains('20-fake/20-fake.php', $selected);
+        $this->assertNotContains('10-fake/10-fake.php', $selected);
     }
 
     public function test_filtered_plugin_activation_is_deferred()
@@ -248,9 +253,9 @@ class AutoloaderTest extends \WP_Mock\Tools\TestCase
         $a = $this->makeAutoloader();
         $a->boot();
 
-        $loaded = $this->getProperty($a, 'loadedPluginEntryPoints');
-        $this->assertIsArray($loaded);
-        $this->assertEmpty($loaded);
+        $selected = $this->getProperty($a, 'selectedPluginEntryPoints');
+        $this->assertIsArray($selected);
+        $this->assertEmpty($selected);
     }
 
     public function test_filter_cannot_inject_arbitrary_paths()
@@ -264,10 +269,10 @@ class AutoloaderTest extends \WP_Mock\Tools\TestCase
         $a = $this->makeAutoloader();
         $a->boot();
 
-        $loaded = $this->getProperty($a, 'loadedPluginEntryPoints');
-        $this->assertCount(1, $loaded);
-        $this->assertContains('20-fake/20-fake.php', $loaded);
-        $this->assertNotContains('../../etc/passwd', $loaded);
+        $selected = $this->getProperty($a, 'selectedPluginEntryPoints');
+        $this->assertCount(1, $selected);
+        $this->assertContains('20-fake/20-fake.php', $selected);
+        $this->assertNotContains('../../etc/passwd', $selected);
     }
 
     public function test_discovery_scans_mu_plugin_dir()
@@ -302,6 +307,93 @@ class AutoloaderTest extends \WP_Mock\Tools\TestCase
         $plugins = $method->invoke($a);
 
         $this->assertEmpty($plugins);
+    }
+
+    public function test_boot_returns_absolute_paths_in_filtered_order()
+    {
+        $this->mockBaseWpFunctions();
+
+        $a = $this->makeAutoloader();
+        $plugins = $a->boot();
+
+        $this->assertCount(2, $plugins);
+        $this->assertEquals(WPMU_PLUGIN_DIR.'/10-fake/10-fake.php', $plugins[0]);
+        $this->assertEquals(WPMU_PLUGIN_DIR.'/20-fake/20-fake.php', $plugins[1]);
+    }
+
+    public function test_boot_respects_filter_order()
+    {
+        $this->mockBaseWpFunctions();
+
+        \WP_Mock::onFilter('bedrock_autoloader_load_plugins')
+            ->with(array_keys(self::$plugins), self::$plugins)
+            ->reply(['20-fake/20-fake.php', '10-fake/10-fake.php']);
+
+        $a = $this->makeAutoloader();
+        $plugins = $a->boot();
+
+        $this->assertCount(2, $plugins);
+        $this->assertEquals(WPMU_PLUGIN_DIR.'/20-fake/20-fake.php', $plugins[0]);
+        $this->assertEquals(WPMU_PLUGIN_DIR.'/10-fake/10-fake.php', $plugins[1]);
+    }
+
+    public function test_activation_hooks_do_not_fire_without_mark_loaded()
+    {
+        $this->mockBaseWpFunctions();
+
+        $a = $this->makeAutoloader();
+        $a->boot();
+
+        // loadedPluginEntryPoints is null — pluginHooks should not fire any activate_ actions
+        $this->assertNull($this->getProperty($a, 'loadedPluginEntryPoints'));
+
+        \WP_Mock::userFunction('get_site_option', [
+            'args' => ['bedrock_autoloader_new_plugins', []],
+            'return' => self::$plugins,
+        ]);
+        \WP_Mock::userFunction('update_site_option', ['return' => true]);
+
+        $activatedPlugins = [];
+        \WP_Mock::userFunction('do_action', [
+            'return' => function () use (&$activatedPlugins) {
+                $activatedPlugins[] = func_get_args()[0];
+            },
+        ]);
+
+        $a->pluginHooks();
+
+        $this->assertEmpty($activatedPlugins);
+    }
+
+    public function test_mark_loaded_enables_activation_hooks()
+    {
+        $this->mockBaseWpFunctions();
+
+        $a = $this->makeAutoloader();
+        $a->boot();
+        $a->markLoaded();
+
+        $this->assertEquals(
+            $this->getProperty($a, 'selectedPluginEntryPoints'),
+            $this->getProperty($a, 'loadedPluginEntryPoints')
+        );
+    }
+
+    public function test_mark_loaded_is_idempotent()
+    {
+        $this->mockBaseWpFunctions();
+
+        $a = $this->makeAutoloader();
+        $a->boot();
+
+        $a->markLoaded();
+        $loadedAfterFirst = $this->getProperty($a, 'loadedPluginEntryPoints');
+
+        // Second call should be a no-op — same state, no duplicate hook registration
+        $a->markLoaded();
+        $loadedAfterSecond = $this->getProperty($a, 'loadedPluginEntryPoints');
+
+        $this->assertSame($loadedAfterFirst, $loadedAfterSecond);
     }
 
     public function test_count_excludes_non_plugin_directories()
