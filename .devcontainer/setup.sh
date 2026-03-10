@@ -81,5 +81,6 @@ wp core install \
   --allow-root
 
 # Install Playwright
+cd /roots/autoloader
 npm install --no-save @playwright/test
 npx playwright install chromium
