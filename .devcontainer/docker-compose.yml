@@ -1,0 +1,48 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    volumes:
+      - ..:/roots/autoloader
+      - bedrock:/roots/bedrock
+    networks:
+      - bedrock
+    depends_on:
+      database:
+        condition: service_healthy
+    environment:
+      WP_CLI_ALLOW_ROOT: 1
+
+  web:
+    image: nginx:alpine
+    ports:
+      - '8080:80'
+    volumes:
+      - bedrock:/roots/bedrock:ro
+      - ./config/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app
+    networks:
+      - bedrock
+
+  database:
+    image: mariadb:12
+    environment:
+      MYSQL_DATABASE: wordpress
+      MYSQL_USER: wordpress
+      MYSQL_PASSWORD: password
+      MYSQL_ROOT_PASSWORD: password
+    networks:
+      - bedrock
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect", "--innodb_initialized"]
+      timeout: 20s
+      retries: 10
+
+volumes:
+  bedrock:
+
+networks:
+  bedrock:
+    driver: bridge

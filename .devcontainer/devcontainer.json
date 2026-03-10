@@ -1,0 +1,7 @@
+{
+  "name": "Bedrock Autoloader E2E",
+  "dockerComposeFile": ["docker-compose.yml"],
+  "service": "app",
+  "workspaceFolder": "/roots/autoloader",
+  "forwardPorts": [8080]
+}

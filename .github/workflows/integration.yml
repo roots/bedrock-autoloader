@@ -1,0 +1,17 @@
+name: Integration
+
+on: [push, pull_request, workflow_dispatch]
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Start dev container and test
+        uses: devcontainers/ci@v0.3
+        with:
+          configFile: .devcontainer/devcontainer.json
+          runCmd: |
+            .devcontainer/setup.sh
+            WP_HOME=http://web npx playwright test --config=playwright.config.cjs
