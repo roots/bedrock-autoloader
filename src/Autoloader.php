@@ -11,9 +11,6 @@ namespace Roots\Bedrock\Autoloader;
  */
 class Autoloader
 {
-    /** @var static Singleton instance */
-    private static $instance;
-
     /** @var array Store Autoloader cache and site option */
     private $cache;
 
@@ -26,24 +23,26 @@ class Autoloader
     /** @var int Number of plugins */
     private $count;
 
-    /** @var string Relative path to the mu-plugins dir */
-    private $relativePath;
-
     /** @var array Entrypoints of all loaded plugins */
     private $loadedPluginEntryPoints;
 
+    /** @var bool Whether boot() has already run */
+    private $booted = false;
+
+    public function __construct(
+        private string $muPluginDir,
+    ) {}
+
     /**
-     * Create singleton, populate vars, and set WordPress hooks
+     * Register hooks and load plugins. Idempotent.
      */
-    public function __construct()
+    public function boot(): void
     {
-        if (isset(self::$instance)) {
+        if ($this->booted) {
             return;
         }
 
-        self::$instance = $this;
-
-        $this->relativePath = '/../'.basename(WPMU_PLUGIN_DIR);
+        $this->booted = true;
 
         if (is_admin()) {
             add_filter('show_advanced_plugins', [$this, 'showInAdmin'], 0, 2);
@@ -63,8 +62,8 @@ class Autoloader
 
         $filtered = apply_filters('bedrock_autoloader_load_plugins', array_keys($this->cache['plugins']), $this->cache['plugins']);
         $this->loadedPluginEntryPoints = array_values(array_intersect((array) $filtered, array_keys($this->cache['plugins'])));
-        array_map(static function ($plugin) {
-            include_once WPMU_PLUGIN_DIR.'/'.$plugin;
+        array_map(function ($plugin) {
+            include_once $this->muPluginDir.'/'.$plugin;
         }, $this->loadedPluginEntryPoints);
 
         add_action('init', [$this, 'pluginHooks'], 0);
@@ -119,8 +118,7 @@ class Autoloader
     /**
      * Discover autoloadable plugins in the mu-plugins directory.
      *
-     * Uses get_plugins() when WP_PLUGIN_DIR exists, otherwise falls back
-     * to scanning WPMU_PLUGIN_DIR subdirectories for valid plugin headers.
+     * Scans mu-plugin subdirectories for PHP files with valid plugin headers.
      *
      * @return array Plugin data keyed by relative path (e.g. 'plugin-dir/plugin-file.php')
      */
@@ -128,16 +126,9 @@ class Autoloader
     {
         require_once ABSPATH.'wp-admin/includes/plugin.php';
 
-        if (is_dir(WP_PLUGIN_DIR)) {
-            $plugins = get_plugins($this->relativePath);
-            if (! empty($plugins)) {
-                return $plugins;
-            }
-        }
-
         $plugins = [];
 
-        foreach ((array) glob(WPMU_PLUGIN_DIR.'/*/*.php', GLOB_NOSORT) as $file) {
+        foreach ((array) glob($this->muPluginDir.'/*/*.php', GLOB_NOSORT) as $file) {
             $data = get_plugin_data($file, false, false);
 
             if (empty($data['Name'])) {
@@ -203,7 +194,7 @@ class Autoloader
     private function validatePlugins()
     {
         foreach ($this->cache['plugins'] as $plugin_file => $plugin_info) {
-            if (! file_exists(WPMU_PLUGIN_DIR.'/'.$plugin_file)) {
+            if (! file_exists($this->muPluginDir.'/'.$plugin_file)) {
                 $this->updateCache();
                 break;
             }
