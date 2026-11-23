@@ -3,10 +3,8 @@
 namespace unit;
 
 use Roots\Bedrock\Autoloader\Autoloader;
-use WP_Mock\Functions;
-use WP_Mock\Tools\TestCase;
 
-class AutoloaderTest extends TestCase
+class AutoloaderTest extends \WP_Mock\Tools\TestCase
 {
     private static $plugins = [
         '10-fake/10-fake.php' => ['Name' => 'UwU', 'Version' => '1.0.0'],
@@ -231,7 +229,7 @@ class AutoloaderTest extends TestCase
             'return' => true,
         ]);
         \WP_Mock::userFunction('update_site_option', [
-            'args' => ['bedrock_autoloader', Functions::type('array')],
+            'args' => ['bedrock_autoloader', \WP_Mock\Functions::type('array')],
             'return' => true,
         ]);
         \WP_Mock::userFunction('add_action', ['return' => true]);
